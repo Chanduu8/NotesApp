@@ -1,18 +1,56 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { toast } from 'react-toastify';
 import {
   signInWithEmailAndPassword,
   GoogleAuthProvider,
   signInWithPopup,
+  signInWithRedirect,
+  getRedirectResult,
 } from 'firebase/auth';
 import { auth, db } from '../../auth/FireBaseConfig';
 import { doc, getDoc, setDoc, serverTimestamp } from 'firebase/firestore';
+import { isMobile } from 'react-device-detect';
 
 const Login = () => {
   const [credentials, setCredentials] = useState({ email: '', password: '' });
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
+
+  useEffect(() => {
+    const handleRedirectResult = async () => {
+      try {
+        const result = await getRedirectResult(auth);
+        if (result) {
+          const user = result.user;
+
+          const userRef = doc(db, 'users', user.uid);
+          const docSnap = await getDoc(userRef);
+
+          if (!docSnap.exists()) {
+            await setDoc(userRef, {
+              email: user.email,
+              role: 'user',
+              createdAt: serverTimestamp(),
+            });
+          }
+
+          localStorage.setItem(
+            'loggedInUser',
+            JSON.stringify({ email: user.email, role: 'user' })
+          );
+
+          toast.success(`Welcome USER - ${user.email}`);
+          navigate('/user');
+        }
+      } catch (error) {
+        console.error('Redirect login error:', error);
+        toast.error('Google redirect login failed.');
+      }
+    };
+
+    handleRedirectResult();
+  }, [navigate]);
 
   const handleChange = (e) => {
     setCredentials({ ...credentials, [e.target.name]: e.target.value });
@@ -60,35 +98,34 @@ const Login = () => {
 
   const handleGoogleLogin = async () => {
     setLoading(true);
+    const provider = new GoogleAuthProvider();
 
     try {
-      const provider = new GoogleAuthProvider();
-      const result = await signInWithPopup(auth, provider);
-      const user = result.user;
+      if (isMobile) {
+        await signInWithRedirect(auth, provider);
+      } else {
+        const result = await signInWithPopup(auth, provider);
+        const user = result.user;
 
-      const userRef = doc(db, 'users', user.uid);
-      const docSnap = await getDoc(userRef);
+        const userRef = doc(db, 'users', user.uid);
+        const docSnap = await getDoc(userRef);
 
-      if (!docSnap.exists()) {
-        await setDoc(userRef, {
-          email: user.email,
-          role: 'user',
-          createdAt: serverTimestamp(),
-        });
+        if (!docSnap.exists()) {
+          await setDoc(userRef, {
+            email: user.email,
+            role: 'user',
+            createdAt: serverTimestamp(),
+          });
+        }
+
+        localStorage.setItem(
+          'loggedInUser',
+          JSON.stringify({ email: user.email, role: 'user' })
+        );
+
+        toast.success(`Welcome USER - ${user.email}`);
+        navigate('/user');
       }
-
-      const role = 'user';
-
-      localStorage.setItem(
-        'loggedInUser',
-        JSON.stringify({
-          email: user.email,
-          role,
-        })
-      );
-
-      toast.success(`Welcome USER - ${user.email}`);
-      navigate('/user');
     } catch (error) {
       console.error('Google login error:', error);
       toast.error('Google login failed.');
