@@ -20,15 +20,17 @@ const Login = () => {
 
   // Handle redirect result after Google login on both desktop and mobile
   useEffect(() => {
+    let handledRedirect = false;
+  
     const handleRedirectResult = async () => {
       try {
         const result = await getRedirectResult(auth);
-        if (result) {
+        if (result && !handledRedirect) {
+          handledRedirect = true;
           const user = result.user;
-
           const userRef = doc(db, 'users', user.uid);
           const docSnap = await getDoc(userRef);
-
+  
           if (!docSnap.exists()) {
             await setDoc(userRef, {
               email: user.email,
@@ -36,12 +38,12 @@ const Login = () => {
               createdAt: serverTimestamp(),
             });
           }
-
+  
           localStorage.setItem(
             'loggedInUser',
             JSON.stringify({ email: user.email, role: 'user' })
           );
-
+  
           toast.success(`Welcome USER - ${user.email}`);
           navigate('/user');
         }
@@ -50,9 +52,10 @@ const Login = () => {
         toast.error('Google redirect login failed.');
       }
     };
-
+  
     handleRedirectResult();
   }, [navigate]);
+  
 
   // Listen to authentication state change (added for smoother redirection)
   useEffect(() => {
