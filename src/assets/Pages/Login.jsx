@@ -18,19 +18,16 @@ const Login = () => {
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
 
-  // Handle redirect result after Google login on both desktop and mobile
+  // Handle redirect result after Google login
   useEffect(() => {
-    let handledRedirect = false;
-  
     const handleRedirectResult = async () => {
       try {
         const result = await getRedirectResult(auth);
-        if (result && !handledRedirect) {
-          handledRedirect = true;
+        if (result && result.user) {
           const user = result.user;
           const userRef = doc(db, 'users', user.uid);
           const docSnap = await getDoc(userRef);
-  
+
           if (!docSnap.exists()) {
             await setDoc(userRef, {
               email: user.email,
@@ -38,12 +35,12 @@ const Login = () => {
               createdAt: serverTimestamp(),
             });
           }
-  
+
           localStorage.setItem(
             'loggedInUser',
             JSON.stringify({ email: user.email, role: 'user' })
           );
-  
+
           toast.success(`Welcome USER - ${user.email}`);
           navigate('/user');
         }
@@ -52,27 +49,25 @@ const Login = () => {
         toast.error('Google redirect login failed.');
       }
     };
-  
+
     handleRedirectResult();
   }, [navigate]);
-  
 
-  // Listen to authentication state change (added for smoother redirection)
+  // Listen to authentication state changes
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (user) => {
+    const unsubscribe = onAuthStateChanged(auth, async (user) => {
       if (user) {
         const userRef = doc(db, 'users', user.uid);
-        getDoc(userRef).then((docSnap) => {
-          if (docSnap.exists()) {
-            const role = docSnap.data().role;
-            localStorage.setItem(
-              'loggedInUser',
-              JSON.stringify({ email: user.email, role })
-            );
-            toast.success(`Welcome ${role.toUpperCase()} - ${user.email}`);
-            navigate(role === 'admin' ? '/admin/admin-homepage' : '/user');
-          }
-        });
+        const docSnap = await getDoc(userRef);
+        if (docSnap.exists()) {
+          const role = docSnap.data().role;
+          localStorage.setItem(
+            'loggedInUser',
+            JSON.stringify({ email: user.email, role })
+          );
+          toast.success(`Welcome ${role.toUpperCase()} - ${user.email}`);
+          navigate(role === 'admin' ? '/admin/admin-homepage' : '/user');
+        }
       }
     });
 
