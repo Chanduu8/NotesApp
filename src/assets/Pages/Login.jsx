@@ -7,6 +7,7 @@ import {
   signInWithPopup,
   signInWithRedirect,
   getRedirectResult,
+  onAuthStateChanged,
 } from 'firebase/auth';
 import { auth, db } from '../../auth/FireBaseConfig';
 import { doc, getDoc, setDoc, serverTimestamp } from 'firebase/firestore';
@@ -17,6 +18,7 @@ const Login = () => {
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
 
+  // Handle redirect result after Google login on both desktop and mobile
   useEffect(() => {
     const handleRedirectResult = async () => {
       try {
@@ -50,6 +52,28 @@ const Login = () => {
     };
 
     handleRedirectResult();
+  }, [navigate]);
+
+  // Listen to authentication state change (added for smoother redirection)
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, (user) => {
+      if (user) {
+        const userRef = doc(db, 'users', user.uid);
+        getDoc(userRef).then((docSnap) => {
+          if (docSnap.exists()) {
+            const role = docSnap.data().role;
+            localStorage.setItem(
+              'loggedInUser',
+              JSON.stringify({ email: user.email, role })
+            );
+            toast.success(`Welcome ${role.toUpperCase()} - ${user.email}`);
+            navigate(role === 'admin' ? '/admin/admin-homepage' : '/user');
+          }
+        });
+      }
+    });
+
+    return () => unsubscribe();
   }, [navigate]);
 
   const handleChange = (e) => {
@@ -102,8 +126,10 @@ const Login = () => {
 
     try {
       if (isMobile) {
+        // For mobile, use the redirect method
         await signInWithRedirect(auth, provider);
       } else {
+        // For desktop, use the popup method
         const result = await signInWithPopup(auth, provider);
         const user = result.user;
 
