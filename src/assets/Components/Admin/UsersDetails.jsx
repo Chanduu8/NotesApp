@@ -52,7 +52,7 @@ const UserDetails = () => {
   return (
     <>
       <Navbar />
-      <div className="p-4 sm:p-6 md:p-8 max-w-7xl mx-auto">
+      <div className="p-4 sm:p-6 md:p-8 mx-auto lg:mr-30 " style={{ width: '80%', maxWidth: '1200px' }}>
         <h2 className="text-xl sm:text-2xl font-bold mb-6 text-center">All Registered Users</h2>
 
         {loading ? (
@@ -66,24 +66,18 @@ const UserDetails = () => {
                 <table className="min-w-full bg-white border border-gray-300 shadow-md rounded-lg">
                   <thead>
                     <tr className="bg-gray-100 text-xs sm:text-sm text-gray-600 uppercase">
-                      {/* <th className="py-2 px-4 sm:py-3 sm:px-6">UID</th> */}
                       <th className="py-2 px-4 sm:py-3 sm:px-6">Email</th>
                       <th className="py-2 px-4 sm:py-3 sm:px-6">Role</th>
                       <th className="py-2 px-4 sm:py-3 sm:px-6">Name</th>
-                      {/* <th className="py-2 px-4 sm:py-3 sm:px-6">Phone</th> */}
-                      {/* <th className="py-2 px-4 sm:py-3 sm:px-6">Address</th> */}
                       <th className="py-2 px-4 sm:py-3 sm:px-6 text-right">Actions</th>
                     </tr>
                   </thead>
                   <tbody>
                     {allUsers.map((user) => (
                       <tr key={user.id} className="border-t text-xs sm:text-sm text-gray-700">
-                        {/* <td className="py-2 px-4 sm:px-6 break-all">{user.id}</td> */}
                         <td className="py-2 px-4 sm:px-6 break-all">{user.email}</td>
                         <td className="py-2 px-4 sm:px-6 capitalize">{user.role}</td>
                         <td className="py-2 px-4 sm:px-6">{user.name || 'N/A'}</td>
-                        {/* <td className="py-2 px-4 sm:px-6">{user.phone || 'N/A'}</td> */}
-                        {/* <td className="py-2 px-4 sm:px-6">{user.address || 'N/A'}</td> */}
                         <td className="py-2 px-4 sm:px-6 text-right">
                           <select
                             className="bg-blue-500 text-white px-2 py-1 rounded text-xs sm:text-sm"
