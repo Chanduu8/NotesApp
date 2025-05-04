@@ -8,29 +8,31 @@ import {
   signInWithRedirect,
   getRedirectResult,
   onAuthStateChanged,
+  setPersistence,
+  browserLocalPersistence,
 } from 'firebase/auth';
 import { auth, db } from '../../auth/FireBaseConfig';
 import { doc, getDoc, setDoc, serverTimestamp } from 'firebase/firestore';
 import { isMobile } from 'react-device-detect';
+
+// Flag to avoid multiple redirect handling
+let handledRedirect = false;
 
 const Login = () => {
   const [credentials, setCredentials] = useState({ email: '', password: '' });
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
 
-  // Handle redirect result after Google login on both desktop and mobile
-  useEffect(() => {
-    let handledRedirect = false;
-  
-    const handleRedirectResult = async () => {
-      try {
-        const result = await getRedirectResult(auth);
-        if (result && !handledRedirect) {
-          handledRedirect = true;
+  // Handle Google redirect result immediately (outside useEffect)
+  if (!handledRedirect) {
+    handledRedirect = true;
+    getRedirectResult(auth)
+      .then(async (result) => {
+        if (result?.user) {
           const user = result.user;
           const userRef = doc(db, 'users', user.uid);
           const docSnap = await getDoc(userRef);
-  
+
           if (!docSnap.exists()) {
             await setDoc(userRef, {
               email: user.email,
@@ -38,41 +40,37 @@ const Login = () => {
               createdAt: serverTimestamp(),
             });
           }
-  
+
           localStorage.setItem(
             'loggedInUser',
             JSON.stringify({ email: user.email, role: 'user' })
           );
-  
+
           toast.success(`Welcome USER - ${user.email}`);
           navigate('/user');
         }
-      } catch (error) {
+      })
+      .catch((error) => {
         console.error('Redirect login error:', error);
         toast.error('Google redirect login failed.');
-      }
-    };
-  
-    handleRedirectResult();
-  }, [navigate]);
-  
+      });
+  }
 
-  // Listen to authentication state change (added for smoother redirection)
+  // Listen to Firebase auth state
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (user) => {
+    const unsubscribe = onAuthStateChanged(auth, async (user) => {
       if (user) {
         const userRef = doc(db, 'users', user.uid);
-        getDoc(userRef).then((docSnap) => {
-          if (docSnap.exists()) {
-            const role = docSnap.data().role;
-            localStorage.setItem(
-              'loggedInUser',
-              JSON.stringify({ email: user.email, role })
-            );
-            toast.success(`Welcome ${role.toUpperCase()} - ${user.email}`);
-            navigate(role === 'admin' ? '/admin/admin-homepage' : '/user');
-          }
-        });
+        const docSnap = await getDoc(userRef);
+        if (docSnap.exists()) {
+          const role = docSnap.data().role;
+          localStorage.setItem(
+            'loggedInUser',
+            JSON.stringify({ email: user.email, role })
+          );
+          toast.success(`Welcome ${role.toUpperCase()} - ${user.email}`);
+          navigate(role === 'admin' ? '/admin/admin-homepage' : '/user');
+        }
       }
     });
 
@@ -86,7 +84,6 @@ const Login = () => {
   const handleLogin = async (e) => {
     e.preventDefault();
     setLoading(true);
-
     try {
       const userCredential = await signInWithEmailAndPassword(
         auth,
@@ -94,7 +91,6 @@ const Login = () => {
         credentials.password
       );
       const user = userCredential.user;
-
       const docRef = doc(db, 'users', user.uid);
       const docSnap = await getDoc(docRef);
 
@@ -128,11 +124,11 @@ const Login = () => {
     const provider = new GoogleAuthProvider();
 
     try {
+      await setPersistence(auth, browserLocalPersistence);
+
       if (isMobile) {
-        // For mobile, use the redirect method
         await signInWithRedirect(auth, provider);
       } else {
-        // For desktop, use the popup method
         const result = await signInWithPopup(auth, provider);
         const user = result.user;
 
